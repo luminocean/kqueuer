@@ -81,6 +81,7 @@ void ev_set(int fd, int filter_id, int flag_id){
 
 int wait(){
     int nev = kevent(kq, changes, change_count, events, event_count, NULL);
+    change_count = 0; // ready to accept new changes
 
     // set readied events
     for(int i=0; i<nev; i++){

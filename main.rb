@@ -2,18 +2,25 @@
 
 require_relative './kqueuer'
 
-READ_SIZE = 1024 # how many bytes are read each time
+READ_SIZE = 3 # how many bytes are read each time
 
 kq = KQueuer.new
+
 # register for reading
 kq.register(STDIN.fileno, KQueuer::KQ_READ, {
   :callback => lambda do
+    input = ''
     begin
       # read as much as it can
-      input = STDIN.read_nonblock(READ_SIZE)
+      while (chunk = STDIN.read_nonblock(READ_SIZE)).length > 0
+        input += chunk
+      end
+    rescue IO::EAGAINWaitReadable
+      # done reading for this batch
     rescue EOFError
       kq.unregister(STDIN.fileno, KQueuer::KQ_READ)
-      return # done reading
+      # nothing left to read, return
+      return if input.length == 0
     end
 
     total_len = input.bytes.length # byte length in UTF-8
