@@ -2,7 +2,7 @@
 
 require_relative './kqueuer'
 
-READ_SIZE = 3 # how many bytes are read each time
+READ_SIZE = 1024 # how many bytes are read each time
 
 kq = KQueuer.new
 
