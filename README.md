@@ -49,8 +49,8 @@ Remember to quit the waiting loop when this situation happens.
 
 # 2. Example
 
-The original file is `main.rb`. You can find it under the project root. I just copy it to here.
-This script simple read data from STDIN and write the data back to STDOUT using underlying kqueue.
+The original file is `main.rb`. You can find it under the project root.
+This script simply read data from STDIN and write the data back to STDOUT using underlying kqueue.
 
 ```
 #! /usr/bin/env ruby
