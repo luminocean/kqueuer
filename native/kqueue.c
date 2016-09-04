@@ -21,12 +21,12 @@ struct kevent changes[MAX_FD_NUM];
 struct kevent events[MAX_FD_NUM];
 struct kevent all[MAX_FD_NUM];
 
-int ready_fds[MAX_FD_NUM];
-int ready_fd_operations[MAX_FD_NUM];
-
 int change_count = 0;
 int event_count = 0;
 int all_count = 0;
+
+int ready_fds[MAX_FD_NUM];
+int ready_fd_operations[MAX_FD_NUM];
 
 int kq; // kqueue object
 
@@ -54,27 +54,15 @@ int fd_operation(int i){
     return ready_fd_operations[i];
 }
 
-struct kevent *find_exist(fd, filter){
-    for(int i=0; i<change_count; i++){
-        struct kevent change = changes[i];
-        if( (int)change.ident == fd && change.filter == filter ){
-            fprintf(stderr, "bang!\n");
-            return changes + i;
+int find(struct kevent *list, int size, int fd, int filter){
+    for(int i=0; i<size; i++){
+        struct kevent *ev = list + i;
+        if( (int)ev->ident == fd && ev->filter == filter ){
+            return i;
         }
     }
 
-    return 0;
-}
-
-struct kevent *find_all(fd, filter){
-    for(int i=0; i<all_count; i++){
-        struct kevent ev = all[i];
-        if( (int)ev.ident == fd && ev.filter == filter ){
-            return all + i;
-        }
-    }
-
-    return 0;
+    return -1;
 }
 
 void ev_set(int fd, int filter_id, int flag_id){
@@ -93,45 +81,47 @@ void ev_set(int fd, int filter_id, int flag_id){
         flag = EV_ADD;
 
         // whether in changes list
-        struct kevent *exist = find_exist(fd, filter);
+        int change_pos = find(changes, change_count, fd, filter);
         // new one
-        if( exist == 0 ){
-            // whether added before
-            if( find_all(fd, filter) ) return;
+        if( change_pos == -1 ){
+            // if added before, skip
+            if( find(all, all_count, fd, filter) != -1 ) return;
 
+            // new change
             EV_SET(&changes[change_count++], fd, filter, flag, 0, 0, 0);
             // one more event expected
             event_count++;
 
+            // record this addition
             EV_SET(&all[all_count++], fd, filter, flag, 0, 0, 0);
-        }else{
-            EV_SET(exist, fd, filter, flag, 0, 0, 0);
+        }
+        // already added once, overriding
+        else{
+            EV_SET(&changes[change_pos], fd, filter, flag, 0, 0, 0);
         }
     }
 
     if( flag_id & 2 ){
         flag = EV_DELETE;
 
-        struct kevent *exist = find_exist(fd, filter);
+        int change_pos = find(changes, change_count, fd, filter);
         // new one
-        if( exist == 0 ){
-            struct kevent *ev;
+        if( change_pos == -1 ){
+            int all_pos;
             // no record, do nothing
-            if( (ev = find_all(fd, filter)) == 0 ) return;
+            if( (all_pos = find(all, all_count, fd, filter)) == -1 ) return;
 
             EV_SET(&changes[change_count++], fd, filter, flag, 0, 0, 0);
             // one less event expected
             event_count--;
 
-            // TODO: need compact
-            EV_SET(ev, 0, 0, 0, 0, 0, 0);
+            // delete the current event in all list
+            all[all_pos] = all[all_count-1];
+            all_count--;
         }else{
-            EV_SET(exist, fd, filter, flag, 0, 0, 0);
+            EV_SET(&changes[change_pos], fd, filter, flag, 0, 0, 0);
         }
     }
-
-    fprintf(stderr, "event_count: %d\n", event_count);
-    fflush(stdout);
 }
 
 int wait(){

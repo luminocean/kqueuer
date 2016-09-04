@@ -61,28 +61,49 @@ READ_SIZE = 1024 # how many bytes are read each time
 
 kq = KQueuer.new
 
+total_len = 0
+data_to_write = []
+
 # register for reading
 kq.register(STDIN.fileno, KQueuer::KQ_READ, {
   :callback => lambda do
-    input = ''
+    #
+    # refactor the string processing
+    # dealing with the proportional writing
+    #
+    input = [] # byte array for input
+    encoding = nil
     begin
       # read as much as it can
-      while (chunk = STDIN.read_nonblock(READ_SIZE)).length > 0
-        input += chunk
-      end
+      # note that chunk is a string in its original binary format
+      # so feel free to convert it into byte array using Array#bytes
+      # without any unexpected changes
+      # while (chunk = STDIN.read_nonblock(READ_SIZE)).length > 0
+      #   encoding ||= chunk.encoding.name
+      #   input += chunk.bytes
+      # end
+
+      chunk = STDIN.read_nonblock(READ_SIZE)
+      encoding ||= chunk.encoding.name
+      input += chunk.bytes
     rescue IO::EAGAINWaitReadable
       # done reading for this batch
     rescue EOFError
       kq.unregister(STDIN.fileno, KQueuer::KQ_READ)
-      # nothing left to read, return
-      return if input.length == 0
     end
 
-    total_len = input.bytes.length # byte length in UTF-8
+    # read nothing thus nothing to write, return
+    return if input.length == 0
+
+    data_to_write += input
+    total_len += input.length
+
     # register for writing
     kq.register(STDOUT.fileno, KQueuer::KQ_WRITE, {
       :callback => lambda do
-        len = STDOUT.write_nonblock(input)
+        len = STDOUT.write_nonblock(data_to_write.pack('C*').force_encoding(encoding))
+
+        data_to_write = data_to_write.slice((len..-1))
         total_len -= len
 
         # nothing left to write

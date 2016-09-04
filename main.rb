@@ -34,7 +34,6 @@ kq.register(STDIN.fileno, KQueuer::KQ_READ, {
     rescue IO::EAGAINWaitReadable
       # done reading for this batch
     rescue EOFError
-      STDERR.write "EOF\n"
       kq.unregister(STDIN.fileno, KQueuer::KQ_READ)
     end
 
