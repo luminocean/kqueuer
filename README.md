@@ -74,15 +74,9 @@ kq.register(STDIN.fileno, KQueuer::KQ_READ, {
     input = [] # byte array for input
     encoding = nil
     begin
-      # read as much as it can
       # note that chunk is a string in its original binary format
       # so feel free to convert it into byte array using Array#bytes
       # without any unexpected changes
-      # while (chunk = STDIN.read_nonblock(READ_SIZE)).length > 0
-      #   encoding ||= chunk.encoding.name
-      #   input += chunk.bytes
-      # end
-
       chunk = STDIN.read_nonblock(READ_SIZE)
       encoding ||= chunk.encoding.name
       input += chunk.bytes
